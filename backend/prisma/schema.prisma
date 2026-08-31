@@ -1,0 +1,319 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// Note: SQL Server does not support native database ENUM types.
+// Fields use String (@db.VarChar) in Prisma schema and are typed via TypeScript Enums in application code.
+
+// ============================================
+// 1. USERS
+// ============================================
+
+model User {
+  id           Int       @id @default(autoincrement())
+  firstName    String    @map("first_name") @db.VarChar(100)
+  lastName     String    @map("last_name") @db.VarChar(100)
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  phone        String?   @db.VarChar(30)
+  role         String    @map("role") @db.VarChar(50)
+
+  // Patient information
+  dateOfBirth  DateTime? @map("date_of_birth") @db.Date
+  gender       String?   @db.VarChar(30)
+  address      String?   @db.Text
+
+  // Doctor information
+  licenseNumber String?  @map("license_number") @db.VarChar(100)
+  bio           String?  @db.Text
+
+  profileImage          String?   @map("profile_image") @db.VarChar(255)
+  forgotPasswordToken   String?   @map("forgot_password_token") @db.VarChar(255)
+  forgotPasswordExpires DateTime? @map("forgot_password_expires")
+
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  establishmentUsers       EstablishmentUser[]
+  patientAppointments      Appointment[]             @relation("PatientAppointments")
+  doctorAppointments       Appointment[]             @relation("DoctorAppointments")
+  createdAppointments      Appointment[]             @relation("CreatedAppointments")
+  doctorSchedules          DoctorSchedule[]
+  doctorScheduleExceptions DoctorScheduleException[]
+  patientTransfers         Transfer[]                @relation("PatientTransfers")
+  fromDoctorTransfers      Transfer[]                @relation("FromDoctorTransfers")
+  toDoctorTransfers        Transfer[]                @relation("ToDoctorTransfers")
+  requestedTransfers       Transfer[]                @relation("RequestedTransfers")
+  approvedTransfers        Transfer[]                @relation("ApprovedTransfers")
+  notifications            Notification[]
+  auditLogs                AuditLog[]
+
+  @@map("users")
+}
+
+// ============================================
+// 2. ESTABLISHMENTS
+// ============================================
+
+model Establishment {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(200)
+  type      String?  @db.VarChar(100)
+  address   String   @db.Text
+  city      String?  @db.VarChar(100)
+  phone     String?  @db.VarChar(30)
+  email     String?  @db.VarChar(255)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  establishmentUsers       EstablishmentUser[]
+  appointments             Appointment[]
+  doctorSchedules          DoctorSchedule[]
+  doctorScheduleExceptions DoctorScheduleException[]
+  fromTransfers            Transfer[]                @relation("FromEstablishmentTransfers")
+  toTransfers              Transfer[]                @relation("ToEstablishmentTransfers")
+
+  @@map("establishments")
+}
+
+// ============================================
+// 3. ESTABLISHMENT USERS
+// ============================================
+// Links users to establishments.
+//
+// Example:
+// Doctor Ahmed → Clinic A
+// Doctor Ahmed → Clinic B
+// Admin Sara  → Clinic A
+//
+// This allows a doctor to work in multiple
+// establishments.
+//
+
+model EstablishmentUser {
+  id              Int      @id @default(autoincrement())
+  establishmentId Int      @map("establishment_id")
+  userId          Int      @map("user_id")
+  role            String   @map("role") @db.VarChar(50)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([establishmentId, userId])
+  @@map("establishment_users")
+}
+
+// ============================================
+// 4. SPECIALTIES
+// ============================================
+
+model Specialty {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(150)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("specialties")
+}
+
+// ============================================
+// 5. APPOINTMENT TYPES
+// ============================================
+
+model AppointmentType {
+  id              Int      @id @default(autoincrement())
+  name            String   @db.VarChar(150)
+  description     String?  @db.Text
+  durationMinutes Int      @map("duration_minutes")
+  price           Decimal? @db.Decimal(10, 2)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  appointments Appointment[]
+
+  @@map("appointment_types")
+}
+
+// ============================================
+// 6. APPOINTMENTS
+// ============================================
+// patient_id and doctor_id both reference users.
+//
+// The role of the user determines whether the
+// referenced user is a PATIENT or DOCTOR.
+//
+
+model Appointment {
+  id                Int      @id @default(autoincrement())
+  patientId         Int      @map("patient_id")
+  doctorId          Int      @map("doctor_id")
+  establishmentId   Int      @map("establishment_id")
+  appointmentTypeId Int      @map("appointment_type_id")
+  appointmentDate   DateTime @map("appointment_date") @db.Date
+  startTime         DateTime @map("start_time")
+  endTime           DateTime @map("end_time")
+  status            String   @default("PENDING") @map("status") @db.VarChar(50)
+  reason            String?  @db.Text
+  notes             String?  @db.Text
+  createdBy         Int      @map("created_by")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  patient         User            @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  doctor          User            @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  establishment   Establishment   @relation(fields: [establishmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  appointmentType AppointmentType @relation(fields: [appointmentTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator         User            @relation("CreatedAppointments", fields: [createdBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transfers       Transfer[]
+
+  @@index([doctorId, appointmentDate, startTime])
+  @@index([patientId, appointmentDate])
+  @@index([establishmentId, appointmentDate])
+  @@map("appointments")
+}
+
+// ============================================
+// 7. DOCTOR SCHEDULES
+// ============================================
+// doctor_id references users.id.
+// The user must have role = DOCTOR.
+//
+
+model DoctorSchedule {
+  id              Int      @id @default(autoincrement())
+  doctorId        Int      @map("doctor_id")
+  establishmentId Int      @map("establishment_id")
+  dayOfWeek       Int      @map("day_of_week")
+  startTime       DateTime @map("start_time")
+  endTime         DateTime @map("end_time")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  doctor        User          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([doctorId, establishmentId, dayOfWeek])
+  @@map("doctor_schedules")
+}
+
+// ============================================
+// 8. DOCTOR SCHEDULE EXCEPTIONS
+// ============================================
+// Used for vacation, absence, holidays, etc.
+//
+
+model DoctorScheduleException {
+  id              Int      @id @default(autoincrement())
+  doctorId        Int      @map("doctor_id")
+  establishmentId Int      @map("establishment_id")
+  exceptionDate   DateTime @map("exception_date") @db.Date
+  type            String   @map("type") @db.VarChar(50)
+  reason          String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  doctor        User          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([doctorId, establishmentId, exceptionDate])
+  @@map("doctor_schedule_exceptions")
+}
+
+// ============================================
+// 9. TRANSFERS (Doctor/Establishment to Doctor/Establishment)
+// ============================================
+// Transfer can change:
+// - doctor
+// - establishment
+// - or both.
+//
+
+model Transfer {
+  id                    Int      @id @default(autoincrement())
+  appointmentId         Int      @map("appointment_id")
+  patientId             Int      @map("patient_id")
+  fromEstablishmentId   Int      @map("from_establishment_id")
+  toEstablishmentId     Int      @map("to_establishment_id")
+  fromDoctorId          Int      @map("from_doctor_id")
+  toDoctorId            Int      @map("to_doctor_id")
+  reason                String   @db.Text
+  status                String   @default("REQUESTED") @map("status") @db.VarChar(50)
+  requestedBy           Int      @map("requested_by")
+  approvedBy            Int?     @map("approved_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  appointment       Appointment   @relation(fields: [appointmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  patient           User          @relation("PatientTransfers", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromEstablishment Establishment @relation("FromEstablishmentTransfers", fields: [fromEstablishmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  toEstablishment   Establishment @relation("ToEstablishmentTransfers", fields: [toEstablishmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromDoctor        User          @relation("FromDoctorTransfers", fields: [fromDoctorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  toDoctor          User          @relation("ToDoctorTransfers", fields: [toDoctorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requester         User          @relation("RequestedTransfers", fields: [requestedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approver          User?         @relation("ApprovedTransfers", fields: [approvedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("transfers")
+}
+
+// ============================================
+// 10. NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String   @db.VarChar(255)
+  message   String   @db.Text
+  type      String   @map("type") @db.VarChar(50)
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ============================================
+// 11. AUDIT LOGS
+// ============================================
+// Keeps track of important actions in the system.
+//
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  action    String   @db.VarChar(100)
+  entity    String   @db.VarChar(100)
+  entityId  Int      @map("entity_id")
+  oldValue  String?  @map("old_value") @db.Text
+  newValue  String?  @map("new_value") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
