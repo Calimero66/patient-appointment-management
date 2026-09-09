@@ -65,19 +65,28 @@ export class TransferService {
       throw conflict("The target doctor already has an appointment booked in this time slot");
     }
 
-    // 5. Create transfer request
+    // 5. Determine target establishment
+    let targetEstablishmentId = data.toEstablishmentId;
+    if (!targetEstablishmentId) {
+      const docEst = await prisma.establishmentUser.findFirst({
+        where: { userId: data.toDoctorId, role: "DOCTOR" },
+      });
+      targetEstablishmentId = docEst?.establishmentId ?? appointment.establishmentId;
+    }
+
+    // 6. Create transfer request
     const transfer = await this.transferRepository.create({
       appointmentId: appointment.id,
       patientId: appointment.patientId,
       fromEstablishmentId: appointment.establishmentId,
-      toEstablishmentId: data.toEstablishmentId ?? appointment.establishmentId,
+      toEstablishmentId: targetEstablishmentId,
       fromDoctorId: appointment.doctorId,
       toDoctorId: data.toDoctorId,
       reason: data.reason,
       requestedBy: requestingUserId,
     });
 
-    // 6. Audit log
+    // 7. Audit log
     if (this.auditLogService) {
       await this.auditLogService.log({
         userId: requestingUserId,
@@ -87,7 +96,7 @@ export class TransferService {
         newValue: {
           appointmentId: appointment.id,
           fromEstablishmentId: appointment.establishmentId,
-          toEstablishmentId: data.toEstablishmentId ?? appointment.establishmentId,
+          toEstablishmentId: targetEstablishmentId,
           fromDoctorId: appointment.doctorId,
           toDoctorId: data.toDoctorId,
           reason: data.reason,

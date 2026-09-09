@@ -162,7 +162,7 @@ export function Dashboard() {
         case 'appointments':
           return <PatientAppointmentsView currentUser={user} onNavigateTab={setActiveTab} />;
         case 'transfers':
-          return <PatientTransfersView currentUser={user} />;
+          return <PatientTransfersView currentUser={user} onNavigateTab={setActiveTab} />;
         case 'notifications':
           return <PatientNotificationsView currentUser={user} />;
         case 'settings':

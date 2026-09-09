@@ -70,6 +70,7 @@ export function EstablishmentsView({ currentUser }: EstablishmentsViewProps) {
   const [staffList, setStaffList] = useState<EstablishmentUser[]>([]);
   const [isLoadingStaff, setIsLoadingStaff] = useState(false);
   const [allDoctorsAndAdmins, setAllDoctorsAndAdmins] = useState<User[]>([]);
+  const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const [selectedUserIdToAdd, setSelectedUserIdToAdd] = useState('');
   const [selectedRoleToAdd, setSelectedRoleToAdd] = useState<'ADMIN' | 'DOCTOR'>('DOCTOR');
   const [isAddingStaff, setIsAddingStaff] = useState(false);
@@ -98,17 +99,24 @@ export function EstablishmentsView({ currentUser }: EstablishmentsViewProps) {
     fetchEstablishments();
   }, [search, page]);
 
-  // 2. Fetch all doctors and admins for the "Add Staff" dropdown
+  // 2. Fetch all doctors and establishment admins for the "Add Staff" dropdown (Super Admin and Patients cannot be assigned)
   const fetchPotentialStaff = async () => {
     try {
       const res = await getUsersApi({ limit: 100 });
       if (res?.data?.users) {
         const eligible = res.data.users.filter(
-          (u) => u.role === 'DOCTOR' || u.role === 'ESTABLISHMENT_ADMIN' || u.role === 'SUPER_ADMIN'
+          (u) => u.role === 'DOCTOR' || u.role === 'ESTABLISHMENT_ADMIN'
         );
         setAllDoctorsAndAdmins(eligible);
-        if (eligible.length > 0) {
+        
+        // Prefer selecting an available user first
+        const available = eligible.find((u) => !u.establishments || u.establishments.length === 0);
+        if (available) {
+          setSelectedUserIdToAdd(available.id);
+          setSelectedRoleToAdd(available.role === 'ESTABLISHMENT_ADMIN' ? 'ADMIN' : 'DOCTOR');
+        } else if (eligible.length > 0) {
           setSelectedUserIdToAdd(eligible[0].id);
+          setSelectedRoleToAdd(eligible[0].role === 'ESTABLISHMENT_ADMIN' ? 'ADMIN' : 'DOCTOR');
         }
       }
     } catch {
@@ -153,6 +161,8 @@ export function EstablishmentsView({ currentUser }: EstablishmentsViewProps) {
   const handleOpenStaff = async (est: Establishment) => {
     setSelectedEstablishment(est);
     setIsStaffModalOpen(true);
+    setStaffSearchQuery('');
+    fetchPotentialStaff();
     setIsLoadingStaff(true);
     try {
       const res = await getEstablishmentUsersApi(est.id);
@@ -245,6 +255,12 @@ export function EstablishmentsView({ currentUser }: EstablishmentsViewProps) {
       return;
     }
 
+    const selectedUser = allDoctorsAndAdmins.find((u) => u.id === selectedUserIdToAdd);
+    if (selectedUser?.establishments && selectedUser.establishments.length > 0) {
+      toast.error(`This user is already assigned to "${selectedUser.establishments[0].name}". Please remove them from their current establishment first.`);
+      return;
+    }
+
     setIsAddingStaff(true);
     try {
       await addEstablishmentUserApi(selectedEstablishment.id, {
@@ -252,11 +268,14 @@ export function EstablishmentsView({ currentUser }: EstablishmentsViewProps) {
         role: selectedRoleToAdd,
       });
       toast.success('Staff member assigned to establishment!');
-      // Refresh staff list
+      
+      // Refresh staff list & potential staff list
       const res = await getEstablishmentUsersApi(selectedEstablishment.id);
       if (res?.data?.users) {
         setStaffList(res.data.users);
       }
+      fetchPotentialStaff();
+      fetchEstablishments();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to add staff member');
     } finally {
@@ -271,6 +290,8 @@ export function EstablishmentsView({ currentUser }: EstablishmentsViewProps) {
       await removeEstablishmentUserApi(selectedEstablishment.id, userId);
       toast.success('Staff member removed from establishment');
       setStaffList((prev) => prev.filter((s) => s.userId !== userId && s.user?.id !== userId));
+      fetchPotentialStaff();
+      fetchEstablishments();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to remove staff member');
     }
@@ -705,55 +726,141 @@ export function EstablishmentsView({ currentUser }: EstablishmentsViewProps) {
             {/* Modal Body: Scrollable Content */}
             <div className="space-y-5 overflow-y-auto pr-1 flex-1">
               {/* Form to Assign New Doctor / Staff */}
-              <form
-                onSubmit={handleAddStaffSubmit}
-                className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3"
-              >
-                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <UserPlus size={14} className="text-blue-600" />
-                  <span>Assign Doctor or Administrator</span>
-                </h4>
+              {(() => {
+                // 1. Only show doctors and establishment admins who are FREE (not assigned to any clinic)
+                const availableStaff = allDoctorsAndAdmins.filter(
+                  (u) => !u.establishments || u.establishments.length === 0
+                );
 
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                  <div className="sm:col-span-6 space-y-1">
-                    <label className="block text-[11px] font-bold text-slate-600">Select User</label>
-                    <select
-                      value={selectedUserIdToAdd}
-                      onChange={(e) => setSelectedUserIdToAdd(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-medium"
-                      required
-                    >
-                      {allDoctorsAndAdmins.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.role === 'DOCTOR' ? 'Dr. ' : ''}{u.firstName} {u.lastName} ({u.role}) — {u.email}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                // 2. Filter by search query (first name, last name, email)
+                const filteredAvailable = availableStaff.filter((u) => {
+                  if (!staffSearchQuery.trim()) return true;
+                  const term = staffSearchQuery.toLowerCase().trim();
+                  const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+                  const email = (u.email || '').toLowerCase();
+                  return fullName.includes(term) || email.includes(term);
+                });
 
-                  <div className="sm:col-span-3 space-y-1">
-                    <label className="block text-[11px] font-bold text-slate-600">Role in Clinic</label>
-                    <select
-                      value={selectedRoleToAdd}
-                      onChange={(e) => setSelectedRoleToAdd(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-medium"
-                    >
-                      <option value="DOCTOR">Doctor</option>
-                      <option value="ADMIN">Admin</option>
-                    </select>
-                  </div>
+                // Auto-sync selection if current selected is not in filtered list
+                const isCurrentInFiltered = filteredAvailable.some((u) => u.id === selectedUserIdToAdd);
+                const activeSelectedId = isCurrentInFiltered
+                  ? selectedUserIdToAdd
+                  : (filteredAvailable[0]?.id || '');
 
-                  <div className="sm:col-span-3">
-                    <button
-                      type="submit"
-                      disabled={isAddingStaff || !selectedUserIdToAdd}
-                      className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
-                    >
-                      {isAddingStaff ? 'Adding...' : '+ Assign'}
-                    </button>
-                  </div>
-                </div>
-              </form>
+                return (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!activeSelectedId) {
+                        toast.error('Please select an available doctor or administrator');
+                        return;
+                      }
+                      // Submit with the activeSelectedId
+                      setSelectedUserIdToAdd(activeSelectedId);
+                      handleAddStaffSubmit(e);
+                    }}
+                    className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <UserPlus size={14} className="text-blue-600" />
+                        <span>Assign Doctor or Administrator</span>
+                      </h4>
+                      <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                        Available to assign: <strong className="text-blue-600">{availableStaff.length}</strong>
+                      </span>
+                    </div>
+
+                    {availableStaff.length === 0 ? (
+                      <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+                        <span className="font-bold text-amber-900 shrink-0">ℹ️ Notice:</span>
+                        <span>No doctors or administrators are currently available. All registered doctors and admins are already assigned to an establishment.</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Search Doctor by Name Input */}
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                          <input
+                            type="text"
+                            placeholder="Search available doctor by name or email..."
+                            value={staffSearchQuery}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setStaffSearchQuery(val);
+                              const term = val.toLowerCase().trim();
+                              const newFiltered = availableStaff.filter((u) => {
+                                if (!term) return true;
+                                const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+                                const email = (u.email || '').toLowerCase();
+                                return fullName.includes(term) || email.includes(term);
+                              });
+                              if (newFiltered.length > 0) {
+                                setSelectedUserIdToAdd(newFiltered[0].id);
+                                setSelectedRoleToAdd(newFiltered[0].role === 'ESTABLISHMENT_ADMIN' ? 'ADMIN' : 'DOCTOR');
+                              }
+                            }}
+                            className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 font-medium"
+                          />
+                        </div>
+
+                        {filteredAvailable.length === 0 ? (
+                          <div className="p-3 bg-white rounded-lg border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                            No available doctor or administrator matches "<strong>{staffSearchQuery}</strong>".
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                            <div className="sm:col-span-6 space-y-1">
+                              <label className="block text-[11px] font-bold text-slate-600">Select Available Doctor / Admin</label>
+                              <select
+                                value={activeSelectedId}
+                                onChange={(e) => {
+                                  const newId = e.target.value;
+                                  setSelectedUserIdToAdd(newId);
+                                  const found = filteredAvailable.find((u) => u.id === newId);
+                                  if (found) {
+                                    setSelectedRoleToAdd(found.role === 'ESTABLISHMENT_ADMIN' ? 'ADMIN' : 'DOCTOR');
+                                  }
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-medium"
+                                required
+                              >
+                                {filteredAvailable.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.role === 'DOCTOR' ? 'Dr. ' : ''}{u.firstName} {u.lastName} ({u.role}) — {u.email}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="sm:col-span-3 space-y-1">
+                              <label className="block text-[11px] font-bold text-slate-600">Role in Clinic</label>
+                              <select
+                                value={selectedRoleToAdd}
+                                onChange={(e) => setSelectedRoleToAdd(e.target.value as any)}
+                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-medium"
+                              >
+                                <option value="DOCTOR">Doctor</option>
+                                <option value="ADMIN">Admin</option>
+                              </select>
+                            </div>
+
+                            <div className="sm:col-span-3">
+                              <button
+                                type="submit"
+                                disabled={isAddingStaff || !activeSelectedId}
+                                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+                              >
+                                {isAddingStaff ? 'Adding...' : '+ Assign'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </form>
+                );
+              })()}
 
               {/* Current Assigned Staff List */}
               <div className="space-y-2.5">

@@ -3,8 +3,10 @@ import {
   type User,
   type Appointment,
   type Transfer,
+  type Establishment,
   getAppointmentsApi,
   getTransfersApi,
+  getMyEstablishmentsApi,
   updateAppointmentStatusApi,
   getMyScheduleApi,
   type DoctorSchedule,
@@ -32,7 +34,12 @@ import {
   AlertCircle,
   Check,
   Activity,
-  Plus
+  Plus,
+  Building2,
+  MapPin,
+  Phone,
+  Mail,
+  AlertTriangle
 } from 'lucide-react';
 import { type DashboardTab } from '../layout/Sidebar';
 import toast from 'react-hot-toast';
@@ -50,6 +57,10 @@ export function DoctorDashboardOverview({
   onNavigateTab,
 }: DoctorDashboardOverviewProps) {
   const doctorName = user ? `Dr. ${user.firstName} ${user.lastName}`.trim() : 'Doctor';
+
+  // Establishment State
+  const [establishment, setEstablishment] = useState<Establishment | null>(null);
+  const [isLoadingEst, setIsLoadingEst] = useState(true);
 
   // Metrics
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
@@ -134,6 +145,26 @@ export function DoctorDashboardOverview({
       } catch {
         setWeeklySchedules([]);
       }
+      // 4. Fetch Doctor's Establishment
+      try {
+        const estRes = await getMyEstablishmentsApi();
+        const list = estRes?.data?.establishments || [];
+        if (list.length > 0 && list[0].establishment) {
+          setEstablishment(list[0].establishment);
+        } else if (user?.establishments && user.establishments.length > 0) {
+          setEstablishment(user.establishments[0] as any);
+        } else {
+          setEstablishment(null);
+        }
+      } catch {
+        if (user?.establishments && user.establishments.length > 0) {
+          setEstablishment(user.establishments[0] as any);
+        } else {
+          setEstablishment(null);
+        }
+      } finally {
+        setIsLoadingEst(false);
+      }
     } catch (error) {
       console.error('Failed to load doctor dashboard data:', error);
     } finally {
@@ -158,12 +189,12 @@ export function DoctorDashboardOverview({
   const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-200">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200 uppercase tracking-wider">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#003580]/10 text-[#003580] border border-[#003580]/20 uppercase tracking-wider">
               Doctor Portal
             </span>
             {user?.licenseNumber && (
@@ -171,7 +202,7 @@ export function DoctorDashboardOverview({
             )}
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
-            Welcome back, <strong className="text-blue-600">{doctorName}</strong>
+            Welcome back, <strong className="text-[#003580]">{doctorName}</strong>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Manage your daily consultations, patient records, transfers, and clinic availability.
@@ -181,20 +212,109 @@ export function DoctorDashboardOverview({
         <div className="flex items-center gap-2.5 shrink-0">
           <button
             onClick={() => onNavigateTab('today')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#003580] hover:bg-[#004aad] active:bg-[#002560] text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow-md shadow-[#003580]/20"
           >
             <CalendarCheck size={16} />
             <span>Today's Consultations</span>
           </button>
           <button
             onClick={() => onNavigateTab('schedule')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow-xs"
           >
             <Clock size={16} />
             <span>My Schedule</span>
           </button>
         </div>
       </div>
+
+      {/* ESTABLISHMENT AFFILIATION CARD */}
+      {!isLoadingEst && (
+        establishment ? (
+          <div
+            className="text-white rounded-2xl p-5 border border-white/10 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-5"
+            style={{
+              background: 'linear-gradient(135deg, #001f4d 0%, #002b66 50%, #001838 100%)',
+            }}
+          >
+            <div className="flex items-start sm:items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 text-emerald-300 flex items-center justify-center shrink-0 shadow-inner">
+                <Building2 size={24} />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-300">
+                    Assigned Medical Facility
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Active Facility
+                  </span>
+                </div>
+                <h2 className="text-lg font-black text-white tracking-tight truncate">
+                  {establishment.name}
+                </h2>
+                <div className="flex items-center gap-4 text-xs text-slate-300 flex-wrap">
+                  {(establishment.address || establishment.city) && (
+                    <span className="flex items-center gap-1 truncate text-slate-300">
+                      <MapPin size={13} className="text-blue-400 shrink-0" />
+                      <span>
+                        {establishment.address}
+                        {establishment.address && establishment.city ? ', ' : ''}
+                        {establishment.city}
+                      </span>
+                    </span>
+                  )}
+                  {establishment.phone && (
+                    <span className="flex items-center gap-1 text-slate-300">
+                      <Phone size={13} className="text-blue-400 shrink-0" />
+                      <span>{establishment.phone}</span>
+                    </span>
+                  )}
+                  {establishment.email && (
+                    <span className="flex items-center gap-1 text-slate-300 truncate">
+                      <Mail size={13} className="text-blue-400 shrink-0" />
+                      <span>{establishment.email}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex items-center gap-2 border-t md:border-t-0 border-slate-800 pt-3 md:pt-0">
+              <span className="px-3 py-1.5 rounded-xl bg-white/10 text-xs font-semibold text-blue-200 border border-white/10">
+                {establishment.type || 'Clinic'}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-amber-50 border-2 border-amber-300/80 rounded-2xl p-4.5 text-amber-950 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-sm text-amber-950">
+                    No Establishment Assigned
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-200 text-amber-900 uppercase tracking-wider">
+                    Unassigned
+                  </span>
+                </div>
+                <p className="text-xs text-amber-900/80 leading-relaxed max-w-2xl">
+                  You are currently not affiliated with any establishment (hospital/clinic). Please contact a Super Administrator or Clinic Administrator to assign you to a facility so patients can book appointments with you.
+                </p>
+              </div>
+            </div>
+
+            <div className="shrink-0">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-amber-900 border border-amber-300 shadow-2xs">
+                <span>Action Required: Contact Admin</span>
+              </span>
+            </div>
+          </div>
+        )
+      )}
 
       {/* 5 METRICS CARDS ROW */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">

@@ -55,7 +55,23 @@ async function main() {
   });
   console.log("Doctors seeded:", doc1.email, doc2.email);
 
-  // 3. Create Patient
+  // 3. Create Establishment Admin
+  const estAdmin = await prisma.user.upsert({
+    where: { email: "establishment.admin@clinic.com" },
+    update: { role: "ESTABLISHMENT_ADMIN" },
+    create: {
+      email: "establishment.admin@clinic.com",
+      passwordHash,
+      firstName: "Claire",
+      lastName: "Directrice",
+      role: "ESTABLISHMENT_ADMIN",
+      phone: "+33140009988",
+      isActive: true,
+    },
+  });
+  console.log("Establishment Admin seeded:", estAdmin.email);
+
+  // 4. Create Patient
   const patient = await prisma.user.upsert({
     where: { email: "patient@example.com" },
     update: {},
@@ -101,7 +117,22 @@ async function main() {
   });
   console.log("Establishments seeded:", est1.name, est2.name);
 
-  // 5. Link Doctors to Establishments
+  // 6. Link Establishment Admin & Doctors to Establishments
+  await prisma.establishmentUser.upsert({
+    where: {
+      establishmentId_userId: {
+        establishmentId: est1.id,
+        userId: estAdmin.id,
+      },
+    },
+    update: {},
+    create: {
+      establishmentId: est1.id,
+      userId: estAdmin.id,
+      role: "ADMIN",
+    },
+  });
+
   await prisma.establishmentUser.upsert({
     where: {
       establishmentId_userId: {

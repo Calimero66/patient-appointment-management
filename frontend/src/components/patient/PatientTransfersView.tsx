@@ -10,9 +10,10 @@ import { getTransfersApi, type Transfer, type User } from '../../services/api';
 
 interface PatientTransfersViewProps {
   currentUser?: User | null;
+  onNavigateTab?: (tab: any) => void;
 }
 
-export function PatientTransfersView({ currentUser }: PatientTransfersViewProps) {
+export function PatientTransfersView({ currentUser, onNavigateTab }: PatientTransfersViewProps) {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -51,11 +52,31 @@ export function PatientTransfersView({ currentUser }: PatientTransfersViewProps)
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">My Transfer Requests</h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Track the status of consultation reassignment requests to other medical specialists.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">My Transfer Requests</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Track the status of consultation reassignment requests to other medical specialists or clinics.
+          </p>
+        </div>
+
+        {onNavigateTab && (
+          <button
+            onClick={() => onNavigateTab('appointments')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-xs shrink-0"
+          >
+            <ArrowRightLeft size={14} />
+            <span>Transfer an Appointment</span>
+          </button>
+        )}
+      </div>
+
+      {/* Helpful Info Tip */}
+      <div className="p-3.5 bg-blue-50/70 border border-blue-100 rounded-2xl text-xs text-blue-900 flex items-start gap-2.5">
+        <span className="shrink-0 text-base">💡</span>
+        <span>
+          <strong>How Transfers Work:</strong> A transfer requires an active booked consultation. To request a transfer to a different doctor or clinic, go to <strong>My Appointments</strong> and click the <strong>"Request Transfer"</strong> button on your scheduled booking.
+        </span>
       </div>
 
       <div className="space-y-3">
@@ -64,12 +85,24 @@ export function PatientTransfersView({ currentUser }: PatientTransfersViewProps)
             Loading transfer requests...
           </div>
         ) : transfers.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 space-y-2">
-            <ArrowRightLeft size={28} className="text-slate-300 mx-auto" />
-            <h3 className="text-sm font-bold text-slate-800">No transfer requests</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              You have not requested any appointment transfers yet.
-            </p>
+          <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+              <ArrowRightLeft size={24} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">No Transfer Requests Found</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                You haven't requested any appointment transfers yet. If you have an upcoming booking, you can transfer it to another doctor or clinic directly from your appointments list.
+              </p>
+            </div>
+            {onNavigateTab && (
+              <button
+                onClick={() => onNavigateTab('appointments')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-xs"
+              >
+                <span>View My Appointments</span>
+              </button>
+            )}
           </div>
         ) : (
           transfers.map((tr) => (

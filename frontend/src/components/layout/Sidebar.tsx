@@ -110,25 +110,44 @@ export function Sidebar({ activeTab, onSelectTab }: SidebarProps) {
       { id: 'book', label: 'Find Doctor & Book', icon: Search },
       { id: 'appointments', label: 'My Appointments', icon: Calendar },
       { id: 'transfers', label: 'My Transfers', icon: ArrowRightLeft },
-      { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifications },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
   }
 
   return (
     <>
-      <aside className="w-64 bg-slate-950 text-slate-100 flex flex-col h-screen fixed top-0 left-0 z-40 p-6 justify-between border-r border-slate-900">
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 pb-5 border-b border-slate-800">
-            <Activity className="text-blue-500 shrink-0" size={26} />
-            <div>
-              <h2 className="text-lg font-bold tracking-tight text-white leading-snug">{displayName}</h2>
-              <span className="inline-block text-[10px] bg-blue-950 text-blue-300 px-2 py-0.5 rounded font-semibold tracking-wider uppercase">
-                {user?.role || 'SUPER_ADMIN'}
-              </span>
+      <aside
+        className="w-64 flex flex-col h-screen fixed top-0 left-0 z-40 p-5 justify-between border-r border-white/10 text-slate-100 shadow-xl"
+        style={{
+          background: 'linear-gradient(180deg, #001f4d 0%, #002b66 50%, #001838 100%)',
+        }}
+      >
+        <div className="space-y-5">
+          {/* Official Ministry Header */}
+          <div className="flex items-center gap-3 pb-4 border-b border-white/10">
+            <div className="w-11 h-11 rounded-2xl bg-white p-1.5 shadow-lg shadow-black/20 flex items-center justify-center shrink-0 border border-white/20">
+              <img
+                src="/Ministere_de_la_Sante.png"
+                alt="Ministère de la Santé"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-bold text-blue-200/70 tracking-widest uppercase truncate">
+                Royaume du Maroc
+              </p>
+              <h2 className="text-xs font-black text-white leading-tight truncate">
+                Ministère de la Santé
+              </h2>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="inline-block text-[9px] font-bold bg-[#1a6e3c]/40 text-emerald-300 px-1.5 py-0.5 rounded-md border border-emerald-500/30 uppercase tracking-wider">
+                  {user?.role || 'SUPER_ADMIN'}
+                </span>
+              </div>
             </div>
           </div>
 
+          {/* Navigation Links */}
           <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -137,18 +156,21 @@ export function Sidebar({ activeTab, onSelectTab }: SidebarProps) {
                 <button
                   key={item.id}
                   onClick={() => onSelectTab(item.id)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer text-left ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold outline-none focus:outline-none focus-visible:outline-none focus:ring-0 transition-colors duration-150 cursor-pointer text-left select-none active:scale-[0.98] ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+                      ? 'bg-blue-600/90 text-white shadow-sm shadow-black/20 border border-white/15 font-bold'
+                      : 'text-slate-300 hover:text-white hover:bg-white/[0.08] border border-transparent'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon size={18} className={isActive ? 'text-white' : 'text-slate-400'} />
-                    <span>{item.label}</span>
+                    <Icon
+                      size={17}
+                      className={isActive ? 'text-white' : 'text-blue-200/60'}
+                    />
+                    <span className="tracking-wide">{item.label}</span>
                   </div>
                   {item.badge !== undefined && item.badge > 0 && (
-                    <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-xs">
                       {item.badge > 99 ? '99+' : item.badge}
                     </span>
                   )}
@@ -158,28 +180,29 @@ export function Sidebar({ activeTab, onSelectTab }: SidebarProps) {
           </nav>
         </div>
 
-        <div className="pt-4 border-t border-slate-800 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+        {/* User Profile & Logout */}
+        <div className="pt-4 border-t border-white/10 space-y-3">
+          <div className="flex items-center gap-3 px-1">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#003580] to-[#1a6e3c] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-md border border-white/20">
               {user?.profileImage ? (
-                <img src={user.profileImage} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                <img src={user.profileImage} alt="Avatar" className="w-full h-full rounded-xl object-cover" />
               ) : (
                 displayName.charAt(0).toUpperCase()
               )}
             </div>
             <div className="truncate min-w-0">
-              <p className="text-sm font-semibold text-white truncate">{displayName}</p>
-              <p className="text-xs text-slate-400 truncate">{user?.role || 'Super Admin'}</p>
+              <p className="text-xs font-bold text-white truncate">{displayName}</p>
+              <p className="text-[10px] text-blue-200/60 truncate font-medium">{user?.email}</p>
             </div>
           </div>
 
           <button
-            className="flex items-center justify-center gap-2 w-full py-2 bg-slate-900 hover:bg-rose-950 hover:text-rose-400 text-rose-500 rounded-xl font-semibold text-xs transition-colors cursor-pointer border border-slate-800"
+            className="flex items-center justify-center gap-2 w-full py-2 bg-white/5 hover:bg-rose-500/20 hover:text-rose-300 text-rose-400 rounded-xl font-bold text-xs transition-colors cursor-pointer border border-white/10"
             onClick={() => setIsLogoutModalOpen(true)}
             title="Sign Out"
           >
-            <LogOut size={16} />
-            <span>Logout</span>
+            <LogOut size={15} />
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>

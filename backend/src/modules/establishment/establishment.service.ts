@@ -1,4 +1,5 @@
-import { notFound, conflict } from '../../utils/errors.js';
+import { notFound, conflict, validationError } from '../../utils/errors.js';
+import prisma from '../../prisma/client.js';
 import { EstablishmentRepository } from './establishment.repository.js';
 import { AuditLogService } from '../auditLog/auditLog.service.js';
 import { 
@@ -76,9 +77,25 @@ export class EstablishmentService {
   async addUser(requestingUserId: number, establishmentId: number, data: AddEstablishmentUserInput) {
     await this.findById(establishmentId);
     
-    const existing = await this.establishmentRepository.findEstablishmentUser(establishmentId, data.userId);
-    if (existing) {
-      throw conflict('User already belongs to this establishment');
+    // 1. Check user existence and validate role (only DOCTOR and ESTABLISHMENT_ADMIN allowed)
+    const targetUser = await prisma.user.findUnique({
+      where: { id: data.userId },
+      select: { id: true, role: true, firstName: true, lastName: true },
+    });
+
+    if (!targetUser) {
+      throw notFound('User');
+    }
+
+    if (targetUser.role !== 'DOCTOR' && targetUser.role !== 'ESTABLISHMENT_ADMIN') {
+      throw validationError('Only Doctors and Establishment Admins can be assigned to an establishment (Super Admins and Patients cannot be assigned).');
+    }
+
+    // 2. Check if user is already assigned to ANY establishment
+    const existingEstablishments = await this.establishmentRepository.findEstablishmentsByUser(data.userId);
+    if (existingEstablishments && existingEstablishments.length > 0) {
+      const currentEstName = existingEstablishments[0].establishment?.name || 'another establishment';
+      throw conflict(`This user is already assigned to "${currentEstName}". You must remove them from their current establishment before assigning them to a new one.`);
     }
 
     const added = await this.establishmentRepository.addUser({ establishmentId, userId: data.userId, role: data.role });

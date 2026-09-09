@@ -20,8 +20,6 @@ import {
   getMyEstablishmentsApi,
   getEstablishmentUsersApi,
   createUserApi,
-  getDoctorsApi,
-  addEstablishmentUserApi,
   removeEstablishmentUserApi,
   toggleUserStatusApi,
   type Establishment,
@@ -42,9 +40,6 @@ export function EstablishmentAdminDoctorsView({ currentUser }: EstablishmentAdmi
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [addMode, setAddMode] = useState<'create' | 'assign'>('create');
-  const [allExistingDoctors, setAllExistingDoctors] = useState<User[]>([]);
-  const [selectedDoctorIdToAssign, setSelectedDoctorIdToAssign] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Remove confirmation modal
@@ -88,21 +83,6 @@ export function EstablishmentAdminDoctorsView({ currentUser }: EstablishmentAdmi
     fetchEstablishmentDoctors();
   }, []);
 
-  const fetchAvailableDoctors = async () => {
-    try {
-      const res = await getDoctorsApi({ limit: 100 });
-      const docs = Array.isArray(res?.data)
-        ? res.data
-        : (res?.data as any)?.doctors || [];
-      setAllExistingDoctors(docs);
-      if (docs.length > 0) {
-        setSelectedDoctorIdToAssign(docs[0].id);
-      }
-    } catch {
-      // Ignore
-    }
-  };
-
   const handleOpenAddModal = () => {
     setNewDoctorForm({
       firstName: '',
@@ -113,7 +93,6 @@ export function EstablishmentAdminDoctorsView({ currentUser }: EstablishmentAdmi
       licenseNumber: '',
       bio: '',
     });
-    fetchAvailableDoctors();
     setIsAddModalOpen(true);
   };
 
@@ -144,26 +123,6 @@ export function EstablishmentAdminDoctorsView({ currentUser }: EstablishmentAdmi
       fetchEstablishmentDoctors();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to create doctor');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleAssignExistingDoctor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!establishment || !selectedDoctorIdToAssign) return;
-
-    setIsSubmitting(true);
-    try {
-      await addEstablishmentUserApi(establishment.id, {
-        userId: selectedDoctorIdToAssign,
-        role: 'DOCTOR',
-      });
-      toast.success('Doctor assigned to establishment successfully!');
-      setIsAddModalOpen(false);
-      fetchEstablishmentDoctors();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to assign doctor');
     } finally {
       setIsSubmitting(false);
     }
@@ -336,8 +295,8 @@ export function EstablishmentAdminDoctorsView({ currentUser }: EstablishmentAdmi
                   <UserPlus size={20} />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Add Doctor to {establishment?.name}</h2>
-                  <p className="text-xs text-slate-500">Create a new doctor or assign an existing doctor</p>
+                  <h2 className="text-base font-bold text-slate-900">Add Doctor to {establishment?.name || 'Clinic'}</h2>
+                  <p className="text-xs text-slate-500">Create a new doctor account directly affiliated with this establishment</p>
                 </div>
               </div>
               <button
@@ -348,175 +307,108 @@ export function EstablishmentAdminDoctorsView({ currentUser }: EstablishmentAdmi
               </button>
             </div>
 
-            {/* Mode Switcher Tabs */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setAddMode('create')}
-                className={`py-2 rounded-lg transition-all cursor-pointer ${
-                  addMode === 'create'
-                    ? 'bg-white text-blue-600 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Create New Doctor
-              </button>
-              <button
-                type="button"
-                onClick={() => setAddMode('assign')}
-                className={`py-2 rounded-lg transition-all cursor-pointer ${
-                  addMode === 'assign'
-                    ? 'bg-white text-blue-600 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Assign Existing Doctor
-              </button>
-            </div>
-
-            {/* MODE 1: CREATE NEW DOCTOR */}
-            {addMode === 'create' && (
-              <form onSubmit={handleCreateNewDoctor} className="space-y-3.5">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">First Name *</label>
-                    <input
-                      type="text"
-                      placeholder="E.g., Sophie"
-                      value={newDoctorForm.firstName}
-                      onChange={(e) => setNewDoctorForm({ ...newDoctorForm, firstName: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Last Name *</label>
-                    <input
-                      type="text"
-                      placeholder="E.g., Martin"
-                      value={newDoctorForm.lastName}
-                      onChange={(e) => setNewDoctorForm({ ...newDoctorForm, lastName: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
-                      required
-                    />
-                  </div>
-                </div>
-
+            <form onSubmit={handleCreateNewDoctor} className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-700">Email Address *</label>
+                  <label className="block text-xs font-bold text-slate-700">First Name *</label>
                   <input
-                    type="email"
-                    placeholder="doctor@clinic.com"
-                    value={newDoctorForm.email}
-                    onChange={(e) => setNewDoctorForm({ ...newDoctorForm, email: e.target.value })}
+                    type="text"
+                    placeholder="E.g., Sophie"
+                    value={newDoctorForm.firstName}
+                    onChange={(e) => setNewDoctorForm({ ...newDoctorForm, firstName: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
                     required
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Initial Password *</label>
-                    <input
-                      type="password"
-                      placeholder="Min. 6 characters"
-                      value={newDoctorForm.password}
-                      onChange={(e) => setNewDoctorForm({ ...newDoctorForm, password: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Phone</label>
-                    <input
-                      type="text"
-                      placeholder="+33 6 12 34 56 78"
-                      value={newDoctorForm.phone}
-                      onChange={(e) => setNewDoctorForm({ ...newDoctorForm, phone: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">License Number</label>
-                    <input
-                      type="text"
-                      placeholder="E.g., MED-9921"
-                      value={newDoctorForm.licenseNumber}
-                      onChange={(e) => setNewDoctorForm({ ...newDoctorForm, licenseNumber: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Specialty / Bio</label>
-                    <input
-                      type="text"
-                      placeholder="E.g., General Practice"
-                      value={newDoctorForm.bio}
-                      onChange={(e) => setNewDoctorForm({ ...newDoctorForm, bio: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-600/20 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Creating...' : 'Create & Assign Doctor'}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* MODE 2: ASSIGN EXISTING DOCTOR */}
-            {addMode === 'assign' && (
-              <form onSubmit={handleAssignExistingDoctor} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">Select Doctor</label>
-                  <select
-                    value={selectedDoctorIdToAssign}
-                    onChange={(e) => setSelectedDoctorIdToAssign(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">Last Name *</label>
+                  <input
+                    type="text"
+                    placeholder="E.g., Martin"
+                    value={newDoctorForm.lastName}
+                    onChange={(e) => setNewDoctorForm({ ...newDoctorForm, lastName: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
                     required
-                  >
-                    {allExistingDoctors.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        Dr. {d.firstName} {d.lastName} ({d.email}) {d.licenseNumber ? `— License: ${d.licenseNumber}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
+              </div>
 
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !selectedDoctorIdToAssign}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-600/20 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Assigning...' : 'Assign to Clinic'}
-                  </button>
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700">Email Address *</label>
+                <input
+                  type="email"
+                  placeholder="doctor@clinic.com"
+                  value={newDoctorForm.email}
+                  onChange={(e) => setNewDoctorForm({ ...newDoctorForm, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">Initial Password *</label>
+                  <input
+                    type="password"
+                    placeholder="Min. 6 characters"
+                    value={newDoctorForm.password}
+                    onChange={(e) => setNewDoctorForm({ ...newDoctorForm, password: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
+                    required
+                  />
                 </div>
-              </form>
-            )}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">Phone</label>
+                  <input
+                    type="text"
+                    placeholder="+33 6 12 34 56 78"
+                    value={newDoctorForm.phone}
+                    onChange={(e) => setNewDoctorForm({ ...newDoctorForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">License Number</label>
+                  <input
+                    type="text"
+                    placeholder="E.g., MED-9921"
+                    value={newDoctorForm.licenseNumber}
+                    onChange={(e) => setNewDoctorForm({ ...newDoctorForm, licenseNumber: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">Specialty / Bio</label>
+                  <input
+                    type="text"
+                    placeholder="E.g., General Practice"
+                    value={newDoctorForm.bio}
+                    onChange={(e) => setNewDoctorForm({ ...newDoctorForm, bio: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-600/20 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Doctor'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

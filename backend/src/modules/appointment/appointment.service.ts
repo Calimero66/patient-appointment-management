@@ -228,7 +228,18 @@ export class AppointmentService {
     if (!appointment) throw notFound("Appointment");
 
     // Ownership check
-    if (
+    if (requestingUserRole === UserRole.ESTABLISHMENT_ADMIN) {
+      const adminEst = await prisma.establishmentUser.findFirst({
+        where: {
+          userId: requestingUserId,
+          role: "ADMIN",
+          establishmentId: appointment.establishmentId,
+        },
+      });
+      if (!adminEst) {
+        throw forbidden("Access denied to this appointment");
+      }
+    } else if (
       requestingUserRole !== UserRole.SUPER_ADMIN &&
       appointment.patientId !== requestingUserId &&
       appointment.doctorId !== requestingUserId

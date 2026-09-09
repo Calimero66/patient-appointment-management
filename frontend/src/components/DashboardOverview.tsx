@@ -103,14 +103,14 @@ export function DashboardOverview({
 
         <div className="flex items-center gap-3 shrink-0">
           <button
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#003580] hover:bg-[#004aad] active:bg-[#002560] text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow-md shadow-[#003580]/20"
             onClick={() => onNavigateTab('users')}
           >
             <UserPlus size={16} />
             <span>Go to User Management</span>
           </button>
           <button
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow-xs"
             onClick={() => alert('Generating system report...')}
           >
             <TrendingUp size={16} />
