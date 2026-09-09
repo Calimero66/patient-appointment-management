@@ -8,28 +8,28 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { GuestRoute } from './components/GuestRoute';
 
 export function AppRouter() {
-  return (
-    <AuthProvider>
-      <Toaster position="top-right" reverseOrder={false} />
-      <BrowserRouter>
-        <Routes>
-          {/* Guest / Public-Only Routes (Redirect logged-in users to /dashboard) */}
-          <Route element={<GuestRoute />}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-          </Route>
+    return (
+        <AuthProvider>
+            <Toaster position="top-right" reverseOrder={false} />
+            <BrowserRouter>
+                <Routes>
+                    {/* Guest / Public-Only Routes (Redirect logged-in users to /dashboard) */}
+                    <Route element={<GuestRoute />}>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
+                    </Route>
 
-          {/* Protected Super Admin / System User Dashboard Route */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-          </Route>
+                    {/* Protected Super Admin / System User Dashboard Route */}
+                    <Route element={<ProtectedRoute />}>
+                        <Route path="/dashboard" element={<Dashboard />} />
+                    </Route>
 
-          {/* Catch-all redirect */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
-  );
+                    {/* Catch-all redirect */}
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+            </BrowserRouter>
+        </AuthProvider>
+    );
 }
 
 export default AppRouter;
