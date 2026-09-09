@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import {
   getMyEstablishmentsApi,
+  getEstablishmentByIdApi,
   getEstablishmentUsersApi,
   getAppointmentsApi,
   createUserApi,
@@ -63,19 +64,41 @@ export function EstablishmentAdminDashboardOverview({ user, onNavigateTab }: Est
       const adminLinks = myEstRes?.data?.establishments || [];
       const primaryLink = adminLinks.find((e) => e.role === 'ADMIN') || adminLinks[0];
 
-      if (primaryLink?.establishment) {
-        setEstablishment(primaryLink.establishment);
-        const estId = primaryLink.establishment.id;
+      let targetEstId = primaryLink?.establishment?.id || (primaryLink as any)?.establishmentId;
+
+      // Fallback to user.establishments prop if primaryLink not yet available
+      if (!targetEstId && user?.establishments && user.establishments.length > 0) {
+        targetEstId = user.establishments[0].id;
+      }
+
+      if (targetEstId) {
+        let estObj = primaryLink?.establishment;
+
+        // If establishment address or phone is missing, fetch full details
+        if (!estObj || !estObj.address) {
+          try {
+            const fullEstRes = await getEstablishmentByIdApi(targetEstId);
+            if (fullEstRes?.data && 'establishment' in fullEstRes.data) {
+              estObj = (fullEstRes.data as any).establishment;
+            }
+          } catch {
+            // Ignore fallback error
+          }
+        }
+
+        if (estObj) {
+          setEstablishment(estObj);
+        }
 
         // 2. Fetch doctors in this establishment
-        const usersRes = await getEstablishmentUsersApi(estId);
+        const usersRes = await getEstablishmentUsersApi(targetEstId);
         if (usersRes?.data?.users) {
           const docUsers = usersRes.data.users.filter((u) => u.role === 'DOCTOR');
           setDoctors(docUsers);
         }
 
         // 3. Fetch appointments in this establishment
-        const appRes = await getAppointmentsApi({ establishmentId: estId, limit: 20 });
+        const appRes = await getAppointmentsApi({ establishmentId: targetEstId, limit: 20 });
         const appList = Array.isArray(appRes?.data)
           ? appRes.data
           : (appRes?.data as any)?.appointments || [];
@@ -90,7 +113,7 @@ export function EstablishmentAdminDashboardOverview({ user, onNavigateTab }: Est
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [user]);
 
   const handleOpenAddDoctorModal = () => {
     setNewDoctorForm({
@@ -158,26 +181,45 @@ export function EstablishmentAdminDashboardOverview({ user, onNavigateTab }: Est
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-950 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
+        <div className="space-y-1.5 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-extrabold uppercase bg-blue-500/30 text-blue-200 px-2.5 py-0.5 rounded-full border border-blue-400/30">
               Establishment Administration
             </span>
-            <span className="text-[10px] font-bold text-slate-300 bg-white/10 px-2.5 py-0.5 rounded-full">
-              {establishment?.type || 'Medical Center'}
-            </span>
+            {establishment?.type && (
+              <span className="text-[10px] font-bold text-slate-300 bg-white/10 px-2.5 py-0.5 rounded-full">
+                {establishment.type}
+              </span>
+            )}
+            {establishment && (
+              <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-400/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Assigned Clinic
+              </span>
+            )}
           </div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight">
-            {establishment?.name || 'My Establishment'}
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight truncate">
+            {establishment?.name || (user?.establishments?.[0]?.name) || 'My Establishment'}
           </h1>
-          <p className="text-xs text-slate-300 flex items-center gap-2">
+          <p className="text-xs text-slate-300 flex items-center gap-2 flex-wrap">
             <MapPin size={13} className="text-blue-400 shrink-0" />
-            <span>{establishment?.address}{establishment?.city ? `, ${establishment.city}` : ''}</span>
+            <span>
+              {establishment?.address
+                ? `${establishment.address}${establishment.city ? `, ${establishment.city}` : ''}`
+                : 'Facility location address'}
+            </span>
             {establishment?.phone && (
               <>
                 <span>•</span>
                 <Phone size={13} className="text-blue-400 shrink-0" />
                 <span>{establishment.phone}</span>
+              </>
+            )}
+            {establishment?.email && (
+              <>
+                <span>•</span>
+                <Mail size={13} className="text-blue-400 shrink-0" />
+                <span>{establishment.email}</span>
               </>
             )}
           </p>
@@ -193,6 +235,86 @@ export function EstablishmentAdminDashboardOverview({ user, onNavigateTab }: Est
           </button>
         </div>
       </div>
+
+      {/* No Clinic Assigned Alert */}
+      {!establishment && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-amber-900 shadow-xs flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <AlertCircle size={22} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-bold text-sm text-amber-900">No Clinic Currently Assigned</h3>
+            <p className="text-xs text-amber-700 leading-relaxed">
+              Your account is an Establishment Administrator, but no facility has been linked to your profile yet.
+              Please ask your Super Administrator to assign your clinic via the <strong>User Management</strong> or <strong>Establishments</strong> panel.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Assigned Clinic Details Card */}
+      {establishment && (
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg shrink-0 border border-blue-100 shadow-xs">
+              <Building2 size={24} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded-md">
+                  Assigned Facility
+                </span>
+                <h3 className="font-black text-sm sm:text-base text-slate-900 truncate">
+                  {establishment.name}
+                </h3>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Active
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 flex items-center gap-3 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <MapPin size={12} className="text-slate-400 shrink-0" />
+                  <span>{establishment.address || 'Address not set'}{establishment.city ? `, ${establishment.city}` : ''}</span>
+                </span>
+                {establishment.phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone size={12} className="text-slate-400 shrink-0" />
+                    <span>{establishment.phone}</span>
+                  </span>
+                )}
+                {establishment.email && (
+                  <span className="flex items-center gap-1">
+                    <Mail size={12} className="text-slate-400 shrink-0" />
+                    <span>{establishment.email}</span>
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {onNavigateTab && (
+              <>
+                <button
+                  onClick={() => onNavigateTab('establishment')}
+                  className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-700 border border-slate-200 font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Building2 size={13} />
+                  <span>Clinic Profile</span>
+                </button>
+                <button
+                  onClick={() => onNavigateTab('doctors')}
+                  className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 border border-blue-200 font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Stethoscope size={13} />
+                  <span>Manage Doctors</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

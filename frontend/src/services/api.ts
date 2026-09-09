@@ -43,6 +43,12 @@ export interface EstablishmentUser {
   establishment?: Establishment;
 }
 
+export interface Specialty {
+  id: number;
+  name: string;
+  description?: string | null;
+}
+
 export interface User {
   id: string;
   firstName: string;
@@ -53,7 +59,8 @@ export interface User {
   dateOfBirth?: string | null;
   gender?: string | null;
   address?: string | null;
-  specialtyId?: string | number | null;
+  specialtyId?: number | null;
+  specialty?: Specialty | null;
   licenseNumber?: string | null;
   bio?: string | null;
   profileImage?: string | null;
@@ -211,6 +218,7 @@ export interface CreateUserData {
   role: UserRole;
   phone?: string;
   licenseNumber?: string;
+  specialtyId?: number;
   bio?: string;
   establishmentId?: string;
 }
@@ -273,8 +281,13 @@ export async function getUsersApi(params?: { search?: string; role?: UserRole; e
   return response.data;
 }
 
-export async function getDoctorsApi(params?: { search?: string; establishmentId?: string; page?: number; limit?: number }) {
+export async function getDoctorsApi(params?: { search?: string; specialtyId?: number; establishmentId?: string; page?: number; limit?: number }) {
   const response = await api.get<ApiResponse<GetDoctorsResponseData | User[]>>('/api/users/doctors', { params });
+  return response.data;
+}
+
+export async function getSpecialtiesApi() {
+  const response = await api.get<ApiResponse<{ specialties: Specialty[] }>>('/api/specialties');
   return response.data;
 }
 

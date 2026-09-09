@@ -62,21 +62,27 @@ export class UserController {
   }
 
   /**
-   * Public / Patient / All Users: Search Doctors by name, email or establishment.
+   * Public / Patient / All Users: Search Doctors by name, email, specialty or establishment.
    */
   async getDoctors(
     req: Request,
     res: Response,
     _next: NextFunction
   ): Promise<Response> {
-    const { search, establishmentId, page, limit } = req.query;
+    const { search, specialty, specialtyId, establishmentId, page, limit } = req.query;
 
     const decodedEstablishmentId = establishmentId
       ? (hashId.decodeId(String(establishmentId)) ?? Number(establishmentId))
       : undefined;
 
+    const decodedSpecialtyId = specialtyId
+      ? (hashId.decodeId(String(specialtyId)) ?? Number(specialtyId))
+      : undefined;
+
     const result = await this.userService.getDoctors({
       search: search as string | undefined,
+      specialty: specialty as string | undefined,
+      specialtyId: decodedSpecialtyId && !isNaN(decodedSpecialtyId) ? decodedSpecialtyId : undefined,
       establishmentId: decodedEstablishmentId && !isNaN(decodedEstablishmentId) ? decodedEstablishmentId : undefined,
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,

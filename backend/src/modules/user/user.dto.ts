@@ -13,6 +13,10 @@ export const userDto = (user: User) => {
     gender: user.gender,
     address: user.address,
     licenseNumber: user.licenseNumber,
+    specialtyId: user.specialtyId ?? null,
+    specialty: user.specialty
+      ? { id: user.specialty.id, name: user.specialty.name, description: user.specialty.description }
+      : null,
     bio: user.bio,
     profileImage: user.profileImage,
     isActive: user.isActive,

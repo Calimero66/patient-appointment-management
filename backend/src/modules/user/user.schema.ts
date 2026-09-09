@@ -29,6 +29,7 @@ export const createUserSchema = z
     gender: z.string().optional(),
     address: z.string().optional(),
     licenseNumber: z.string().optional(),
+    specialtyId: z.preprocess(parseHashOrNumber, z.number().optional()),
     bio: z.string().optional(),
     establishmentId: z.preprocess(parseHashOrNumber, z.number().optional()),
   });
@@ -50,6 +51,7 @@ export const updateUserSchema = z
     gender: z.string().nullable().optional(),
     address: z.string().nullable().optional(),
     licenseNumber: z.string().nullable().optional(),
+    specialtyId: z.preprocess(parseHashOrNumber, z.number().nullable().optional()),
     bio: z.string().nullable().optional(),
     isActive: z.boolean().optional(),
     establishmentId: z.preprocess(parseHashOrNumber, z.number().optional()),

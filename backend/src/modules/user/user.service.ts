@@ -54,6 +54,7 @@ export class UserService {
         gender: data.gender ?? null,
         address: data.address ?? null,
         licenseNumber: data.licenseNumber ?? null,
+        specialtyId: data.specialtyId ?? null,
         bio: data.bio ?? null,
       },
     });
@@ -149,6 +150,7 @@ export class UserService {
       gender: data.gender,
       address: data.address,
       licenseNumber: data.licenseNumber,
+      specialtyId: data.specialtyId !== undefined ? data.specialtyId : undefined,
       bio: data.bio,
       isActive: data.isActive,
       dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : (data.dateOfBirth === null ? null : undefined),
@@ -167,6 +169,11 @@ export class UserService {
         where: { establishmentId: data.establishmentId, userId: targetUserId },
       });
       if (!existingLink) {
+        if (updatedUser.role === UserRole.ESTABLISHMENT_ADMIN) {
+          await prisma.establishmentUser.deleteMany({
+            where: { userId: targetUserId, role: "ADMIN" },
+          });
+        }
         await prisma.establishmentUser.create({
           data: {
             establishmentId: data.establishmentId,
@@ -188,7 +195,7 @@ export class UserService {
       });
     }
 
-    return updatedUser;
+    return (await this.findById(targetUserId)) || (updatedUser as User);
   }
 
   /**
@@ -205,9 +212,9 @@ export class UserService {
   }
 
   /**
-   * Public / Patient / All Users: Get / Search doctors by name, email or establishment.
+   * Public / Patient / All Users: Get / Search doctors by name, email, specialty or establishment.
    */
-  async getDoctors(query: { search?: string; establishmentId?: number; page?: number; limit?: number }): Promise<{ doctors: User[]; totalCount: number }> {
+  async getDoctors(query: { search?: string; specialty?: string; specialtyId?: number; establishmentId?: number; page?: number; limit?: number }): Promise<{ doctors: User[]; totalCount: number }> {
     return await this.userRepository.findDoctors(query);
   }
 

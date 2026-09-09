@@ -44,6 +44,7 @@ import { transferRoutes } from './modules/transfer/transfer.routes.js';
 import { scheduleRoutes } from './modules/schedule/schedule.routes.js';
 import { notificationRoutes } from './modules/notification/notification.routes.js';
 import { establishmentRoutes } from './modules/establishment/establishment.routes.js';
+import prisma from './prisma/client.js';
 
 // ─── DI: Wire up repositories, services, controllers ──────────────────────────
 const userRepository = new UserRepository();
@@ -128,6 +129,19 @@ app.use('/api/transfers', transferRoutes(transferController));
 app.use('/api/schedules', scheduleRoutes(scheduleController));
 app.use('/api/notifications', notificationRoutes(notificationController));
 app.use('/api/establishments', establishmentRoutes(establishmentController));
+
+// ─── Specialties Endpoint ──────────────────────────────────────────────────
+app.get('/api/specialties', async (_req, res, next) => {
+  try {
+    const specialties = await prisma.specialty.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+    res.status(200).json({ success: true, data: { specialties } });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

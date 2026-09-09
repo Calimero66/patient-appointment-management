@@ -27,9 +27,5 @@ export const establishmentUserDto = (eu: any) => ({
     email: eu.user.email,
     role: eu.user.role,
   } : undefined,
-  establishment: eu.establishment ? {
-    id: hashId.encodeId(eu.establishment.id),
-    name: eu.establishment.name,
-    isActive: eu.establishment.isActive,
-  } : undefined,
+  establishment: eu.establishment ? establishmentDto(eu.establishment) : undefined,
 });

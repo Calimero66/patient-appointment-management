@@ -33,6 +33,7 @@ model User {
 
   // Doctor information
   licenseNumber String?  @map("license_number") @db.VarChar(100)
+  specialtyId   Int?     @map("specialty_id")
   bio           String?  @db.Text
 
   profileImage          String?   @map("profile_image") @db.VarChar(255)
@@ -44,6 +45,7 @@ model User {
   updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
 
   // Relations
+  specialty                Specialty?                @relation(fields: [specialtyId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   establishmentUsers       EstablishmentUser[]
   patientAppointments      Appointment[]             @relation("PatientAppointments")
   doctorAppointments       Appointment[]             @relation("DoctorAppointments")
@@ -127,6 +129,9 @@ model Specialty {
   description String?  @db.Text
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  doctors     User[]
 
   @@map("specialties")
 }

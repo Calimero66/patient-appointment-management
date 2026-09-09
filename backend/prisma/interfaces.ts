@@ -59,6 +59,8 @@ export interface User {
   gender?: string | null;
   address?: string | null;
   licenseNumber?: string | null;
+  specialtyId?: number | null;
+  specialty?: Specialty | null;
   bio?: string | null;
   profileImage?: string | null;
   forgotPasswordToken?: string | null;

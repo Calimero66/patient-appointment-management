@@ -11,6 +11,7 @@ export interface UserUpdateInput {
   gender?: string | null;
   address?: string | null;
   licenseNumber?: string | null;
+  specialtyId?: number | null;
   bio?: string | null;
   profileImage?: string | null;
   isActive?: boolean;

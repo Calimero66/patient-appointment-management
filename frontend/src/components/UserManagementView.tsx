@@ -6,9 +6,13 @@ import {
   forgetPasswordApi,
   updateUserApi,
   toggleUserStatusApi,
+  getSpecialtiesApi,
+  getEstablishmentsApi,
   type User,
   type UserRole,
-  type CreateUserData
+  type CreateUserData,
+  type Specialty,
+  type Establishment
 } from '../services/api';
 import {
   Table,
@@ -29,6 +33,7 @@ import {
   Shield,
   Stethoscope,
   UserCheck,
+  Building2,
   RefreshCw,
   Sparkles,
   ChevronLeft,
@@ -52,6 +57,11 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [isLoadingApi, setIsLoadingApi] = useState(true);
   const [apiError, setApiError] = useState('');
+
+  // Specialties for Doctor form
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  // Establishments for Doctor and Establishment Admin forms
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,7 +100,9 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
     phone: string;
     role: UserRole;
     licenseNumber: string;
+    specialtyId: number | '';
     bio: string;
+    establishmentId: string;
     isActive: boolean;
   }>({
     firstName: '',
@@ -100,11 +112,13 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
     phone: '',
     role: 'DOCTOR',
     licenseNumber: '',
+    specialtyId: '',
     bio: '',
+    establishmentId: '',
     isActive: true
   });
 
-  const [formData, setFormData] = useState<CreateUserData>({
+  const [formData, setFormData] = useState<Omit<CreateUserData, 'specialtyId'> & { specialtyId?: number | ''; establishmentId?: string }>({
     email: '',
     password: '',
     firstName: '',
@@ -112,7 +126,9 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
     role: 'DOCTOR',
     phone: '',
     licenseNumber: '',
-    bio: ''
+    specialtyId: '',
+    bio: '',
+    establishmentId: ''
   });
 
   // Fetch users dynamically
@@ -178,6 +194,17 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
     return () => clearTimeout(timer);
   }, [searchTerm, roleFilter, currentPage, pageSize]);
 
+  // Load specialties and establishments once on mount
+  useEffect(() => {
+    getSpecialtiesApi()
+      .then((res) => setSpecialties(res?.data?.specialties || []))
+      .catch(() => {});
+
+    getEstablishmentsApi({ limit: 100 })
+      .then((res) => setEstablishments(res?.data?.establishments || []))
+      .catch(() => {});
+  }, []);
+
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const startItem = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalCount);
@@ -207,6 +234,12 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
       return;
     }
 
+    if (formData.role === 'ESTABLISHMENT_ADMIN' && !formData.establishmentId) {
+      setFormError('Please select an establishment for the Establishment Admin.');
+      toast.error('Please select an establishment.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -218,6 +251,8 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
         role: formData.role,
         phone: formData.phone || undefined,
         licenseNumber: formData.role === 'DOCTOR' ? formData.licenseNumber || undefined : undefined,
+        specialtyId: formData.role === 'DOCTOR' && formData.specialtyId ? Number(formData.specialtyId) : undefined,
+        establishmentId: (formData.role === 'DOCTOR' || formData.role === 'ESTABLISHMENT_ADMIN') && formData.establishmentId ? formData.establishmentId : undefined,
         bio: formData.role === 'DOCTOR' ? formData.bio || undefined : undefined
       };
 
@@ -234,7 +269,9 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
         role: 'DOCTOR',
         phone: '',
         licenseNumber: '',
-        bio: ''
+        specialtyId: '',
+        bio: '',
+        establishmentId: ''
       });
 
       fetchUsers();
@@ -261,7 +298,9 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
       phone: u.phone || '',
       role: u.role || 'DOCTOR',
       licenseNumber: u.licenseNumber || '',
+      specialtyId: u.specialtyId || '',
       bio: u.bio || '',
+      establishmentId: u.establishments && u.establishments.length > 0 ? u.establishments[0].id : '',
       isActive: u.isActive !== false
     });
     setFormError('');
@@ -284,6 +323,8 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
         phone: editFormData.phone || undefined,
         role: editFormData.role,
         licenseNumber: editFormData.role === 'DOCTOR' ? editFormData.licenseNumber || undefined : undefined,
+        specialtyId: editFormData.role === 'DOCTOR' && editFormData.specialtyId ? Number(editFormData.specialtyId) : undefined,
+        establishmentId: (editFormData.role === 'DOCTOR' || editFormData.role === 'ESTABLISHMENT_ADMIN') && editFormData.establishmentId ? editFormData.establishmentId : undefined,
         bio: editFormData.role === 'DOCTOR' ? editFormData.bio || undefined : undefined,
         isActive: editFormData.isActive
       };
@@ -371,6 +412,13 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
             SUPER ADMIN
           </span>
         );
+      case 'ESTABLISHMENT_ADMIN':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+            <Building2 size={12} />
+            ESTABLISHMENT ADMIN
+          </span>
+        );
       case 'DOCTOR':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
@@ -423,7 +471,7 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900">Create New System Account</h3>
-                  <p className="text-xs text-slate-500">Create Doctor, Patient, or Super Admin accounts</p>
+                  <p className="text-xs text-slate-500">Create Doctor, Establishment Admin, Patient, or Super Admin accounts</p>
                 </div>
               </div>
 
@@ -454,10 +502,44 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
                     required
                   >
                     <option value="DOCTOR">DOCTOR</option>
+                    <option value="ESTABLISHMENT_ADMIN">ESTABLISHMENT_ADMIN (Clinic / Hospital Admin)</option>
                     <option value="PATIENT">PATIENT</option>
-                    <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    {currentUser?.role !== 'ESTABLISHMENT_ADMIN' && (
+                      <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    )}
                   </select>
                 </div>
+
+                {/* Assigned Establishment (for Establishment Admin and Doctor) */}
+                {(formData.role === 'ESTABLISHMENT_ADMIN' || formData.role === 'DOCTOR') && (
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Building2 size={13} className="text-amber-600" />
+                        <span>Assigned Establishment / Clinic</span>
+                      </span>
+                      {formData.role === 'ESTABLISHMENT_ADMIN' ? (
+                        <span className="text-[10px] text-amber-600 font-bold uppercase">Required *</span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-normal">Optional</span>
+                      )}
+                    </label>
+                    <select
+                      name="establishmentId"
+                      value={formData.establishmentId || ''}
+                      onChange={handleFormChange}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white font-medium"
+                      required={formData.role === 'ESTABLISHMENT_ADMIN'}
+                    >
+                      <option value="">— Select an Establishment / Clinic —</option>
+                      {establishments.map((est) => (
+                        <option key={est.id} value={est.id}>
+                          {est.name} {est.city ? `(${est.city})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="space-y-1 sm:col-span-2">
                   <label className="block text-xs font-semibold text-slate-700">Email Address *</label>
@@ -540,6 +622,25 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
 
               {formData.role === 'DOCTOR' && (
                 <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Specialty <span className="text-indigo-500">*</span>
+                  </label>
+                  <select
+                    name="specialtyId"
+                    value={formData.specialtyId ?? ''}
+                    onChange={handleFormChange}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white font-medium"
+                  >
+                    <option value="">— Select a specialty —</option>
+                    {specialties.map((sp) => (
+                      <option key={sp.id} value={sp.id}>{sp.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {formData.role === 'DOCTOR' && (
+                <div className="space-y-1">
                   <label className="block text-xs font-semibold text-slate-700">Doctor Bio</label>
                   <textarea
                     name="bio"
@@ -610,10 +711,44 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
                     required
                   >
                     <option value="DOCTOR">DOCTOR</option>
+                    <option value="ESTABLISHMENT_ADMIN">ESTABLISHMENT_ADMIN (Clinic / Hospital Admin)</option>
                     <option value="PATIENT">PATIENT</option>
-                    <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    {currentUser?.role !== 'ESTABLISHMENT_ADMIN' && (
+                      <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    )}
                   </select>
                 </div>
+
+                {/* Assigned Establishment (for Establishment Admin and Doctor) */}
+                {(editFormData.role === 'ESTABLISHMENT_ADMIN' || editFormData.role === 'DOCTOR') && (
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Building2 size={13} className="text-amber-600" />
+                        <span>Assigned Establishment / Clinic</span>
+                      </span>
+                      {editFormData.role === 'ESTABLISHMENT_ADMIN' ? (
+                        <span className="text-[10px] text-amber-600 font-bold uppercase">Required *</span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-normal">Optional</span>
+                      )}
+                    </label>
+                    <select
+                      name="establishmentId"
+                      value={editFormData.establishmentId || ''}
+                      onChange={handleEditFormChange}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white font-medium"
+                      required={editFormData.role === 'ESTABLISHMENT_ADMIN'}
+                    >
+                      <option value="">— Select an Establishment / Clinic —</option>
+                      {establishments.map((est) => (
+                        <option key={est.id} value={est.id}>
+                          {est.name} {est.city ? `(${est.city})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="space-y-1 sm:col-span-2">
                   <label className="block text-xs font-semibold text-slate-700">Email Address *</label>
@@ -687,6 +822,25 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
                   </div>
                 )}
               </div>
+
+              {editFormData.role === 'DOCTOR' && (
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Specialty <span className="text-indigo-500">*</span>
+                  </label>
+                  <select
+                    name="specialtyId"
+                    value={editFormData.specialtyId ?? ''}
+                    onChange={handleEditFormChange}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white font-medium"
+                  >
+                    <option value="">— Select a specialty —</option>
+                    {specialties.map((sp) => (
+                      <option key={sp.id} value={sp.id}>{sp.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {editFormData.role === 'DOCTOR' && (
                 <div className="space-y-1">
@@ -779,10 +933,32 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
                 </div>
               )}
 
+              {selectedUser.specialty && (
+                <div className="p-3 bg-indigo-50 rounded-xl space-y-1 border border-indigo-100">
+                  <p className="text-indigo-400 font-semibold uppercase tracking-wider text-[10px]">Specialty</p>
+                  <p className="font-bold text-indigo-800">{selectedUser.specialty.name}</p>
+                  {selectedUser.specialty.description && (
+                    <p className="text-[11px] text-indigo-600">{selectedUser.specialty.description}</p>
+                  )}
+                </div>
+              )}
+
               {selectedUser.bio && (
                 <div className="p-3 bg-slate-50 rounded-xl space-y-1">
                   <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Doctor Bio</p>
                   <p className="text-slate-800 font-medium">{selectedUser.bio}</p>
+                </div>
+              )}
+
+              {selectedUser.establishments && selectedUser.establishments.length > 0 && (
+                <div className="p-3 bg-amber-50 rounded-xl space-y-1 border border-amber-100">
+                  <p className="text-amber-700 font-semibold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                    <Building2 size={12} />
+                    <span>Assigned Establishment / Clinic</span>
+                  </p>
+                  <p className="font-bold text-amber-950">
+                    {selectedUser.establishments.map((e) => e.name).join(', ')}
+                  </p>
                 </div>
               )}
             </div>
@@ -884,6 +1060,7 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
               >
                 <option value="ALL">All Roles</option>
                 <option value="DOCTOR">DOCTOR</option>
+                <option value="ESTABLISHMENT_ADMIN">ESTABLISHMENT ADMIN</option>
                 <option value="PATIENT">PATIENT</option>
                 <option value="SUPER_ADMIN">SUPER ADMIN</option>
               </select>
@@ -958,7 +1135,15 @@ export function UserManagementView({ currentUser }: UserManagementViewProps) {
                         )}
                       </TableCell>
                       <TableCell>
-                        {getRoleBadge(u.role)}
+                        <div>
+                          {getRoleBadge(u.role)}
+                          {u.establishments && u.establishments.length > 0 && (
+                            <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
+                              <Building2 size={11} className="text-amber-600 shrink-0" />
+                              <span className="truncate max-w-[140px] font-medium text-slate-700">{u.establishments[0].name}</span>
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {isActive ? (

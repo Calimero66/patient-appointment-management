@@ -8,7 +8,30 @@ async function main() {
 
   const passwordHash = await bcrypt.hash("Password123!", 10);
 
-  // 1. Create Super Admin
+  // 1. Create Standard Specialties
+  const standardSpecialties = [
+    { name: "General Practitioner", description: "Primary medical evaluation and care" },
+    { name: "Dentist", description: "Dental health, cleaning, surgery and oral care" },
+    { name: "Cardiologist", description: "Heart and cardiovascular system care" },
+    { name: "Pediatrician", description: "Medical care for infants, children, and adolescents" },
+    { name: "Dermatologist", description: "Skin, hair, and nail health specialist" },
+    { name: "Ophthalmologist", description: "Eye and vision care specialist" },
+    { name: "Gynecologist", description: "Women's reproductive health and obstetrics" },
+    { name: "Neurologist", description: "Brain, nerves, and spinal cord care" },
+    { name: "Orthopedist", description: "Bones, joints, ligaments, and tendons care" },
+    { name: "ENT Specialist", description: "Ear, nose, and throat disorders" },
+  ];
+
+  for (const s of standardSpecialties) {
+    await prisma.specialty.upsert({
+      where: { name: s.name },
+      update: { description: s.description },
+      create: { name: s.name, description: s.description, isActive: true },
+    });
+  }
+  console.log("Specialties seeded successfully!");
+
+  // 2. Create Super Admin
   const admin = await prisma.user.upsert({
     where: { email: "admin@calimero.com" },
     update: { role: "SUPER_ADMIN" },
@@ -23,10 +46,16 @@ async function main() {
   });
   console.log("Super Admin seeded:", admin.email);
 
-  // 2. Create Doctors
+  // Helper to get specialty id by name
+  const getSpecialtyId = async (name: string): Promise<number | undefined> => {
+    const s = await prisma.specialty.findUnique({ where: { name } });
+    return s?.id;
+  };
+
+  // 3. Create Doctors with Specialized Roles
   const doc1 = await prisma.user.upsert({
     where: { email: "doctor1@clinic.com" },
-    update: { role: "DOCTOR" },
+    update: { role: "DOCTOR", bio: "Cardiologist", specialtyId: await getSpecialtyId("Cardiologist") },
     create: {
       email: "doctor1@clinic.com",
       passwordHash,
@@ -34,14 +63,15 @@ async function main() {
       lastName: "Martin",
       role: "DOCTOR",
       licenseNumber: "MED-7701",
-      bio: "Cardiology and Internal Medicine Specialist",
+      bio: "Cardiologist",
+      specialtyId: await getSpecialtyId("Cardiologist"),
       isActive: true,
     },
   });
 
   const doc2 = await prisma.user.upsert({
     where: { email: "doctor2@clinic.com" },
-    update: { role: "DOCTOR" },
+    update: { role: "DOCTOR", bio: "Dentist", specialtyId: await getSpecialtyId("Dentist") },
     create: {
       email: "doctor2@clinic.com",
       passwordHash,
@@ -49,13 +79,62 @@ async function main() {
       lastName: "Bernard",
       role: "DOCTOR",
       licenseNumber: "MED-8802",
-      bio: "General Practice and Pediatrics Specialist",
+      bio: "Dentist",
+      specialtyId: await getSpecialtyId("Dentist"),
       isActive: true,
     },
   });
-  console.log("Doctors seeded:", doc1.email, doc2.email);
 
-  // 3. Create Establishment Admin
+  const doc3 = await prisma.user.upsert({
+    where: { email: "doctor.general@clinic.com" },
+    update: { role: "DOCTOR", bio: "General Practitioner", specialtyId: await getSpecialtyId("General Practitioner") },
+    create: {
+      email: "doctor.general@clinic.com",
+      passwordHash,
+      firstName: "Yassine",
+      lastName: "Alami",
+      role: "DOCTOR",
+      licenseNumber: "MED-9011",
+      bio: "General Practitioner",
+      specialtyId: await getSpecialtyId("General Practitioner"),
+      isActive: true,
+    },
+  });
+
+  const doc4 = await prisma.user.upsert({
+    where: { email: "doctor.pediatre@clinic.com" },
+    update: { role: "DOCTOR", bio: "Pediatrician", specialtyId: await getSpecialtyId("Pediatrician") },
+    create: {
+      email: "doctor.pediatre@clinic.com",
+      passwordHash,
+      firstName: "Amina",
+      lastName: "Mansouri",
+      role: "DOCTOR",
+      licenseNumber: "MED-9022",
+      bio: "Pediatrician",
+      specialtyId: await getSpecialtyId("Pediatrician"),
+      isActive: true,
+    },
+  });
+
+  const doc5 = await prisma.user.upsert({
+    where: { email: "doctor.derma@clinic.com" },
+    update: { role: "DOCTOR", bio: "Dermatologist", specialtyId: await getSpecialtyId("Dermatologist") },
+    create: {
+      email: "doctor.derma@clinic.com",
+      passwordHash,
+      firstName: "Karim",
+      lastName: "Benjelloun",
+      role: "DOCTOR",
+      licenseNumber: "MED-9033",
+      bio: "Dermatologist",
+      specialtyId: await getSpecialtyId("Dermatologist"),
+      isActive: true,
+    },
+  });
+  console.log("Doctors seeded with specialties:", doc1.email, doc2.email, doc3.email, doc4.email, doc5.email);
+
+  // 4. Create Establishment Admin
   const estAdmin = await prisma.user.upsert({
     where: { email: "establishment.admin@clinic.com" },
     update: { role: "ESTABLISHMENT_ADMIN" },
@@ -151,6 +230,21 @@ async function main() {
   await prisma.establishmentUser.upsert({
     where: {
       establishmentId_userId: {
+        establishmentId: est1.id,
+        userId: doc2.id,
+      },
+    },
+    update: {},
+    create: {
+      establishmentId: est1.id,
+      userId: doc2.id,
+      role: "DOCTOR",
+    },
+  });
+
+  await prisma.establishmentUser.upsert({
+    where: {
+      establishmentId_userId: {
         establishmentId: est2.id,
         userId: doc2.id,
       },
@@ -159,6 +253,51 @@ async function main() {
     create: {
       establishmentId: est2.id,
       userId: doc2.id,
+      role: "DOCTOR",
+    },
+  });
+
+  await prisma.establishmentUser.upsert({
+    where: {
+      establishmentId_userId: {
+        establishmentId: est1.id,
+        userId: doc3.id,
+      },
+    },
+    update: {},
+    create: {
+      establishmentId: est1.id,
+      userId: doc3.id,
+      role: "DOCTOR",
+    },
+  });
+
+  await prisma.establishmentUser.upsert({
+    where: {
+      establishmentId_userId: {
+        establishmentId: est2.id,
+        userId: doc4.id,
+      },
+    },
+    update: {},
+    create: {
+      establishmentId: est2.id,
+      userId: doc4.id,
+      role: "DOCTOR",
+    },
+  });
+
+  await prisma.establishmentUser.upsert({
+    where: {
+      establishmentId_userId: {
+        establishmentId: est1.id,
+        userId: doc5.id,
+      },
+    },
+    update: {},
+    create: {
+      establishmentId: est1.id,
+      userId: doc5.id,
       role: "DOCTOR",
     },
   });

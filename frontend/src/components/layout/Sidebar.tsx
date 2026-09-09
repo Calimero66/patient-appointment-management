@@ -139,10 +139,16 @@ export function Sidebar({ activeTab, onSelectTab }: SidebarProps) {
               <h2 className="text-xs font-black text-white leading-tight truncate">
                 Ministère de la Santé
               </h2>
-              <div className="mt-1 flex items-center gap-1.5">
-                <span className="inline-block text-[9px] font-bold bg-[#1a6e3c]/40 text-emerald-300 px-1.5 py-0.5 rounded-md border border-emerald-500/30 uppercase tracking-wider">
+              <div className="mt-1 flex flex-col gap-1">
+                <span className="inline-block text-[9px] font-bold bg-[#1a6e3c]/40 text-emerald-300 px-1.5 py-0.5 rounded-md border border-emerald-500/30 uppercase tracking-wider w-fit">
                   {user?.role || 'SUPER_ADMIN'}
                 </span>
+                {user?.role === 'ESTABLISHMENT_ADMIN' && user?.establishments && user.establishments.length > 0 && (
+                  <span className="text-[10px] text-amber-300 font-semibold flex items-center gap-1 truncate" title={user.establishments[0].name}>
+                    <Building2 size={11} className="shrink-0 text-amber-400" />
+                    <span className="truncate">{user.establishments[0].name}</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>

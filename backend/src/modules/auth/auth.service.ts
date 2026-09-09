@@ -45,6 +45,14 @@ export class AuthService {
   async login(data: LoginInput): Promise<{ token: string; user: User }> {
     const user = await prisma.user.findFirst({
       where: { email: data.login },
+      include: {
+        specialty: true,
+        establishmentUsers: {
+          include: {
+            establishment: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -72,6 +80,14 @@ export class AuthService {
   async getMe(userId: number): Promise<User | null> {
     return (await prisma.user.findUnique({
       where: { id: userId },
+      include: {
+        specialty: true,
+        establishmentUsers: {
+          include: {
+            establishment: true,
+          },
+        },
+      },
     })) as User | null;
   }
 }

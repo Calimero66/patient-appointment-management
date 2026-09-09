@@ -94,7 +94,7 @@ export class EstablishmentService {
     // 2. Check if user is already assigned to ANY establishment
     const existingEstablishments = await this.establishmentRepository.findEstablishmentsByUser(data.userId);
     if (existingEstablishments && existingEstablishments.length > 0) {
-      const currentEstName = existingEstablishments[0].establishment?.name || 'another establishment';
+      const currentEstName = (existingEstablishments[0] as any).establishment?.name || 'another establishment';
       throw conflict(`This user is already assigned to "${currentEstName}". You must remove them from their current establishment before assigning them to a new one.`);
     }
 

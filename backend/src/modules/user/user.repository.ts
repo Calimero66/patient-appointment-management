@@ -7,6 +7,7 @@ export class UserRepository {
     return (await prisma.user.findUnique({
       where: { id },
       include: {
+        specialty: true,
         establishmentUsers: {
           include: {
             establishment: true,
@@ -20,6 +21,7 @@ export class UserRepository {
     return (await prisma.user.findUnique({
       where: { email },
       include: {
+        specialty: true,
         establishmentUsers: {
           include: {
             establishment: true,
@@ -33,6 +35,7 @@ export class UserRepository {
     return (await prisma.user.findFirst({
       where: { email: login },
       include: {
+        specialty: true,
         establishmentUsers: {
           include: {
             establishment: true,
@@ -45,6 +48,7 @@ export class UserRepository {
   async findAll(): Promise<User[]> {
     return (await prisma.user.findMany({
       include: {
+        specialty: true,
         establishmentUsers: {
           include: {
             establishment: true,
@@ -59,6 +63,7 @@ export class UserRepository {
     return (await prisma.user.findMany({
       where: { role },
       include: {
+        specialty: true,
         establishmentUsers: {
           include: {
             establishment: true,
@@ -103,6 +108,7 @@ export class UserRepository {
     const users = await prisma.user.findMany({
       where,
       include: {
+        specialty: true,
         establishmentUsers: {
           include: {
             establishment: true,
@@ -119,11 +125,13 @@ export class UserRepository {
 
   async findDoctors(options: {
     search?: string;
+    specialty?: string;
+    specialtyId?: number;
     establishmentId?: number;
     page?: number;
     limit?: number;
   }): Promise<{ doctors: User[]; totalCount: number }> {
-    const { search, establishmentId, page = 1, limit = 10 } = options;
+    const { search, specialty, specialtyId, establishmentId, page = 1, limit = 10 } = options;
 
     const where: any = {
       role: UserRole.DOCTOR,
@@ -136,12 +144,21 @@ export class UserRepository {
       };
     }
 
+    // Filter by specialtyId FK (preferred) or fall back to specialty name via relation
+    if (specialtyId) {
+      where.specialtyId = specialtyId;
+    } else if (specialty && specialty.trim() !== "" && specialty.toUpperCase() !== "ALL") {
+      where.specialty = { name: { contains: specialty.trim() } };
+    }
+
     if (search && search.trim() !== "") {
       const term = search.trim();
       where.OR = [
         { firstName: { contains: term } },
         { lastName: { contains: term } },
         { email: { contains: term } },
+        { bio: { contains: term } },
+        { licenseNumber: { contains: term } },
       ];
     }
 
@@ -149,6 +166,7 @@ export class UserRepository {
     const doctors = await prisma.user.findMany({
       where,
       include: {
+        specialty: true,
         establishmentUsers: {
           include: {
             establishment: true,
@@ -201,6 +219,7 @@ export class UserRepository {
       where: { id },
       data,
       include: {
+        specialty: true,
         establishmentUsers: {
           include: {
             establishment: true,
@@ -221,6 +240,7 @@ export class UserRepository {
     return (await prisma.user.findFirst({
       where: { forgotPasswordToken },
       include: {
+        specialty: true,
         establishmentUsers: {
           include: {
             establishment: true,
